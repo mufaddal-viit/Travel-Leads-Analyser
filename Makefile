@@ -1,4 +1,4 @@
-.PHONY: install run test clean
+.PHONY: install run test clean dashboard-config
 
 ## install: Install all Python dependencies from requirements.txt
 install:
@@ -15,6 +15,10 @@ run-debug:
 ## test: Run the test suite with verbose output
 test:
 	python -m pytest tests/ -v
+
+## dashboard-config: Generate Dashboard/config.js from .env
+dashboard-config:
+	python generate_dashboard_config.py
 
 ## clean: Remove compiled Python files and cache directories
 clean:

@@ -23,17 +23,9 @@ from src.config import (
 )
 from src.lead_scorer import build_analysis_prompt
 from src.models import Lead, LeadAnalysis
+from src.prompts import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
-
-# ── System prompt ─────────────────────────────────────────────────────────────
-_SYSTEM_PROMPT = (
-    "You are a senior Sales Development Representative (SDR) with over 10 years of B2B "
-    "sales experience across SaaS, Healthcare, Finance, and Enterprise software. "
-    "Your task is to evaluate inbound sales leads and return a structured JSON qualification "
-    "assessment. You must be critical and realistic — not every lead is a good prospect. "
-    "Respond with a valid JSON object only. No explanations, no markdown fences, no commentary."
-)
 
 
 class AIAnalyzer:
@@ -52,19 +44,6 @@ class AIAnalyzer:
     def analyze_lead(self, lead: Lead) -> LeadAnalysis:
         """
         Analyse a single lead and return a structured LeadAnalysis.
-
-        Sends the lead data to Groq with a carefully engineered prompt,
-        parses the JSON response, and validates it with Pydantic. Retries
-        up to API_MAX_RETRIES times with exponential backoff on failure.
-
-        Args:
-            lead: The Lead to analyse.
-
-        Returns:
-            A validated LeadAnalysis instance.
-
-        Raises:
-            RuntimeError: If all retry attempts are exhausted.
         """
         prompt = build_analysis_prompt(lead)
         last_error: Exception | None = None
@@ -131,7 +110,7 @@ class AIAnalyzer:
         response = self.client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,          # Low temperature for consistent, factual output
@@ -144,11 +123,6 @@ class AIAnalyzer:
     def _extract_json(content: str) -> dict[str, Any]:
         """
         Parse JSON from the API response string.
-
-        Tries direct JSON parsing first, then falls back to extracting a JSON
-        object from within markdown code fences or raw text, in case the model
-        ignores the response_format instruction.
-
         Args:
             content: Raw string content from the LLM.
 

@@ -17,21 +17,28 @@ A browser-based dashboard that reads directly from the same Google Sheet and vis
 | **Live sync**         | Fetches data from Google Sheets API on every load                            |
 | **Pagination**        | 50 leads per page — each page is a separate API call                         |
 | **Date filter**       | Filter by `Processed At` date range — defaults to today                      |
-| **Tier filter**       | One-click filter: All / High / Medium / Low                                  |
 | **Search**            | Live search across name, company, industry, job title                        |
 | **Data source bar**   | Shows sheet name, spreadsheet ID, fetch status, row count, last fetched time |
 | **Lead detail modal** | Click any row to see full message, business need, and recommended action     |
 
 ### Dashboard Setup
 
-1. Open [`Dashboard/config.js`](Dashboard/config.js) and fill in:
-   ```js
-   SPREADSHEET_ID: "your-sheet-id-from-the-url",
-   API_KEY:        "your-google-api-key",
-   SHEET_NAME:     "Sheet1",
+1. Add the following to your `.env` file (see [`.env.example`](.env.example)):
+   ```env
+   GOOGLE_SHEETS_API_KEY=your_google_sheets_api_key_here
+   SPREADSHEET_ID=your_spreadsheet_id_here
+   SHEET_NAME=Sheet1
    ```
-2. In Google Sheets, click **Share → Anyone with the link → Viewer** (required for the API key to read it).
-3. Open [`Dashboard/index.html`](Dashboard/index.html) in a browser.
+2. Generate `Dashboard/config.js` from `.env`:
+   ```bash
+   python generate_dashboard_config.py
+   # or
+   make dashboard-config
+   ```
+3. In Google Sheets, click **Share → Anyone with the link → Viewer** (required for the API key to read it).
+4. Open [`Dashboard/index.html`](Dashboard/index.html) in a browser.
+
+> `Dashboard/config.js` is gitignored — credentials never touch version control.
 
 > **Note:** The Python pipeline writes to the sheet via a service account (`credentials.json`). The dashboard reads from it via a separate read-only API key. These are two different Google credentials with different purposes.
 
@@ -58,6 +65,83 @@ Each lead passes through a single linear pipeline orchestrated by `src/main.py`:
 4. **Store** — `SheetsWriter` appends each result to a Google Sheet in real time.
 
 ---
+
+## How the AI Prompt Works
+
+Every lead is evaluated through a single Groq API call structured as two messages:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  SYSTEM MESSAGE  (constant — same for every lead)               │
+│                                                                 │
+│  • Persona: senior SDR, 10+ years in Travel & Hospitality       │
+│  • Scoring signals: Authority, Intent, Fit, Urgency             │
+│  • Score ranges with recommended actions (0–19 up to 80–100)    │
+│  • Industry categories to classify the lead into                │
+│  • Output format: strict JSON, no commentary                    │
+└─────────────────────────────────────────────────────────────────┘
+                          +
+┌─────────────────────────────────────────────────────────────────┐
+│  USER MESSAGE  (changes per lead)                               │
+│                                                                 │
+│  Name      : {name}                                             │
+│  Email     : {email}                                            │
+│  Company   : {company_name}                                     │
+│  Job Title : {job_title}                                        │
+│  Message   : {message}                                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The **system message** is the AI's standing briefing — it never changes between leads. The **user message** is just the lead's raw data. This is the standard pattern for LLM task automation: rules stay in the system prompt, data goes in the user prompt.
+
+<details>
+<summary>End-to-end example</summary>
+
+### End-to-end example
+
+**Input lead (from `sample_leads.csv`):**
+
+| Field     | Value                                                                                                                                                                                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Name      | James Harrington                                                                                                                                                                     |
+| Company   | Deloitte                                                                                                                                                                             |
+| Job Title | Head of Global Events                                                                                                                                                                |
+| Message   | _"We are organising our annual leadership summit — 450 attendees, Bali, November 2025. Budget approved at $1.2M. We are finalising vendors this month and I am the decision-maker."_ |
+
+**What gets sent to Groq:**
+
+```
+[system]  You are a senior SDR with 10+ years in the Tours, Travel, and
+          Hospitality industry... [scoring criteria, score ranges, output format]
+
+[user]    Name      : James Harrington
+          Email     : j.harrington@deloitte-events.com
+          Company   : Deloitte
+          Job Title : Head of Global Events
+          Message   : We are organising our annual leadership summit — 450
+                      attendees, Bali, November 2025. Budget approved at $1.2M...
+```
+
+**What the LLM returns:**
+
+```json
+{
+  "lead_score": 95,
+  "industry": "Corporate Travel",
+  "business_need": "Full-service destination management for a 450-person corporate leadership summit in Bali, including flights, accommodation, and event logistics.",
+  "recommended_action": "Schedule a consultation call to discuss itinerary and pricing."
+}
+```
+
+**What gets written to Google Sheets:**
+
+| Name             | Company  | Job Title             | Score | Industry         | Business Need                                             | Recommended Action                                            | Processed At         |
+| ---------------- | -------- | --------------------- | ----- | ---------------- | --------------------------------------------------------- | ------------------------------------------------------------- | -------------------- |
+| James Harrington | Deloitte | Head of Global Events | 95    | Corporate Travel | Full-service DMC for 450-person leadership summit in Bali | Schedule a consultation call to discuss itinerary and pricing | 2025-01-15 10:32 UTC |
+
+> All prompt templates live in [`src/prompts.py`](src/prompts.py). To change how the AI scores leads, edit only that file — no other code needs to change.
+
+</details>
 
 ## Tech Stack
 
@@ -215,7 +299,8 @@ ai-lead-qualification/
 │   ├── config.py              # Env var loading and startup validation
 │   ├── models.py              # Pydantic models: Lead, LeadAnalysis, ProcessedLead
 │   ├── csv_reader.py          # CSV loading and row validation (pandas)
-│   ├── lead_scorer.py         # Prompt template and score categorisation logic
+│   ├── prompts.py             # LLM prompt templates and scoring guidelines
+│   ├── lead_scorer.py         # Score categorisation logic and prompt assembly
 │   ├── ai_analyzer.py         # Groq API calls, JSON parsing, retry logic
 │   └── sheets_writer.py       # Google Sheets authentication and row writing
 │
@@ -227,5 +312,6 @@ ai-lead-qualification/
     ├── index.html             # Dashboard entry point — open in any browser
     ├── app.js                 # Data fetching, filtering, pagination, rendering
     ├── styles.css             # Dark theme styles
-    └── config.js              # Google Sheets API key and spreadsheet ID
+    ├── config.example.js      # Config template (committed)
+    └── config.js              # Generated from .env — gitignored, never committed
 ```

@@ -1,9 +1,5 @@
 """
 Main entry point for the AI Lead Qualification Automation pipeline.
-
-Usage:
-    python -m src.main --input sample_leads.csv
-    python -m src.main --input leads.csv --log-level DEBUG
 """
 
 import argparse
