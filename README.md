@@ -145,16 +145,16 @@ The **system message** is the AI's standing briefing — it never changes betwee
 
 ## Tech Stack
 
-| Component        | Library / Service                            |
-| ---------------- | -------------------------------------------- |
-| Language         | Python 3.10+                                 |
-| AI / LLM         | [Groq](https://groq.com) — `llama3-70b-8192` |
-| Data validation  | Pydantic v2                                  |
-| CSV processing   | pandas                                       |
-| Google Sheets    | gspread + google-auth                        |
-| Configuration    | python-dotenv                                |
-| Progress display | tqdm                                         |
-| Testing          | pytest                                       |
+| Component        | Library / Service                                |
+| ---------------- | ------------------------------------------------ |
+| Language         | Python 3.10+                                     |
+| AI / LLM         | [Groq](https://groq.com) — `openai/gpt-oss-120b` |
+| Data validation  | Pydantic v2                                      |
+| CSV processing   | pandas                                           |
+| Google Sheets    | gspread + google-auth                            |
+| Configuration    | python-dotenv                                    |
+| Progress display | tqdm                                             |
+| Testing          | pytest                                           |
 
 ---
 
