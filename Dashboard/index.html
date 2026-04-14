@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lead Qualification Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="spinner"></div>
+      <p>Fetching from Google Sheets…</p>
+    </div>
+
+    <!-- Header -->
+    <header>
+      <h1>Lead Qualification <span>Dashboard</span></h1>
+      <span class="sync-badge" id="sync-badge"></span>
+    </header>
+
+    <!-- Stat cards -->
+    <div class="stats" id="stats">
+      <!-- populated by app.js -->
+    </div>
+
+    <!-- Data source info bar -->
+    <div class="datasource-bar" id="datasource-bar">
+      <div class="ds-item">
+        <span class="ds-label">Source</span>
+        <span class="ds-value">Google Sheets API v4</span>
+      </div>
+      <div class="ds-item">
+        <span class="ds-label">Sheet Name</span>
+        <span class="ds-value" id="ds-sheet">—</span>
+      </div>
+      <div class="ds-item">
+        <span class="ds-label">Spreadsheet ID</span>
+        <span class="ds-value ds-mono" id="ds-id">—</span>
+      </div>
+      <div class="ds-item">
+        <span class="ds-label">Fetch Status</span>
+        <span class="ds-value" id="ds-status">—</span>
+      </div>
+      <div class="ds-item">
+        <span class="ds-label">Total Rows</span>
+        <span class="ds-value" id="ds-rows">—</span>
+      </div>
+      <div class="ds-item">
+        <span class="ds-label">Last Fetched</span>
+        <span class="ds-value" id="ds-fetched">—</span>
+      </div>
+    </div>
+
+    <!-- Controls: row 1 — search + tier filters -->
+    <div class="controls">
+      <div class="controls-row">
+        <input
+          class="search-box"
+          type="text"
+          id="search"
+          placeholder="Search name, company, industry, job title…"
+        />
+        <div class="filter-btns">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn high" data-filter="high">High</button>
+          <button class="filter-btn mid" data-filter="mid">Medium</button>
+          <button class="filter-btn low" data-filter="low">Low</button>
+        </div>
+      </div>
+
+      <!-- Controls: row 2 — date range + count -->
+      <div class="controls-row">
+        <div class="date-range">
+          <span class="date-label">Processed At</span>
+          <input type="date" id="date-from" title="From date" />
+          <span class="date-sep">→</span>
+          <input type="date" id="date-to" title="To date" />
+          <button class="clear-dates-btn" id="clear-dates">Clear</button>
+        </div>
+        <span class="count-label" id="count-label"></span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Company</th>
+            <th>Job Title</th>
+            <th>Industry</th>
+            <th>Score</th>
+            <th>Recommended Action</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+
+      <div class="empty" id="empty" style="display: none">
+        <div class="icon">🔍</div>
+        No leads match your filters on this page.
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination" id="pagination" style="display: none">
+        <span class="page-info" id="page-info"></span>
+        <div class="page-buttons" id="page-buttons"></div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+      <div class="modal">
+        <button class="modal-close" id="modal-close">&#215;</button>
+        <div id="modal-content"></div>
+      </div>
+    </div>
+
+    <!-- config.js must load before app.js -->
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

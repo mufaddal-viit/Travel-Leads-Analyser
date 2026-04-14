@@ -4,6 +4,39 @@ A Python automation system that reads inbound sales leads from a CSV file, analy
 
 ---
 
+## Live Dashboard (HTML, JS, CSS)
+
+A browser-based dashboard that reads directly from the same Google Sheet and visualises all processed leads in real time — no server required.
+
+**Open:** [`Dashboard/index.html`](Dashboard/index.html) — double-click in File Explorer or open in any browser.
+
+### Features
+
+| Feature               | Details                                                                      |
+| --------------------- | ---------------------------------------------------------------------------- |
+| **Live sync**         | Fetches data from Google Sheets API on every load                            |
+| **Pagination**        | 50 leads per page — each page is a separate API call                         |
+| **Date filter**       | Filter by `Processed At` date range — defaults to today                      |
+| **Tier filter**       | One-click filter: All / High / Medium / Low                                  |
+| **Search**            | Live search across name, company, industry, job title                        |
+| **Data source bar**   | Shows sheet name, spreadsheet ID, fetch status, row count, last fetched time |
+| **Lead detail modal** | Click any row to see full message, business need, and recommended action     |
+
+### Dashboard Setup
+
+1. Open [`Dashboard/config.js`](Dashboard/config.js) and fill in:
+   ```js
+   SPREADSHEET_ID: "your-sheet-id-from-the-url",
+   API_KEY:        "your-google-api-key",
+   SHEET_NAME:     "Sheet1",
+   ```
+2. In Google Sheets, click **Share → Anyone with the link → Viewer** (required for the API key to read it).
+3. Open [`Dashboard/index.html`](Dashboard/index.html) in a browser.
+
+> **Note:** The Python pipeline writes to the sheet via a service account (`credentials.json`). The dashboard reads from it via a separate read-only API key. These are two different Google credentials with different purposes.
+
+---
+
 ## Architecture
 
 ```
@@ -28,16 +61,16 @@ Each lead passes through a single linear pipeline orchestrated by `src/main.py`:
 
 ## Tech Stack
 
-| Component             | Library / Service               |
-|-----------------------|---------------------------------|
-| Language              | Python 3.10+                    |
-| AI / LLM              | [Groq](https://groq.com) — `llama3-70b-8192` |
-| Data validation       | Pydantic v2                     |
-| CSV processing        | pandas                          |
-| Google Sheets         | gspread + google-auth           |
-| Configuration         | python-dotenv                   |
-| Progress display      | tqdm                            |
-| Testing               | pytest                          |
+| Component        | Library / Service                            |
+| ---------------- | -------------------------------------------- |
+| Language         | Python 3.10+                                 |
+| AI / LLM         | [Groq](https://groq.com) — `llama3-70b-8192` |
+| Data validation  | Pydantic v2                                  |
+| CSV processing   | pandas                                       |
+| Google Sheets    | gspread + google-auth                        |
+| Configuration    | python-dotenv                                |
+| Progress display | tqdm                                         |
+| Testing          | pytest                                       |
 
 ---
 
@@ -58,7 +91,7 @@ git clone https://github.com/your-username/ai-lead-qualification.git
 cd ai-lead-qualification
 ```
 
-### 2. Create and activate a virtual environment
+### 2. Create and activate a virtual environment (OPTIONAL)
 
 ```bash
 python -m venv .venv
@@ -95,7 +128,7 @@ make install
 cp .env.example .env
 ```
 
-Open `.env` and fill in your values:
+Open `.env` and fill in values:
 
 ```env
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
@@ -104,20 +137,12 @@ GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
 GOOGLE_SHEET_NAME=Lead Qualification Results
 ```
 
-### 6. Run the pipeline
+### 6. Run Project
 
 ```bash
 python -m src.main --input sample_leads.csv
 # or
 make run
-```
-
-For verbose output:
-
-```bash
-python -m src.main --input sample_leads.csv --log-level DEBUG
-# or
-make run-debug
 ```
 
 ---
@@ -150,54 +175,26 @@ Qualifying leads: 100%|███████████████████
 ══════════════════════════════════════════════════════
 ```
 
-**Google Sheet result (sample row):**
-
-| Name | Email | Company | Job Title | Message | Lead Score | Industry | Business Need | Recommended Action | Processed At |
-|------|-------|---------|-----------|---------|------------|----------|---------------|--------------------|--------------|
-| Sarah Johnson | sarah.johnson@brighttech.io | BrightTech | VP of Sales | We're scaling our sales team... | 91 | SaaS | Scaling sales team requires CRM automation and AI-powered lead routing. | Schedule demo call with senior sales rep | 2024-01-15 10:32:05 UTC |
-
 ---
 
 ## Scoring Methodology
 
 The LLM is instructed to follow these explicit scoring tiers:
 
-| Score Range | Tier   | Criteria |
-|-------------|--------|----------|
-| 80 – 100    | High   | Decision-maker (C-Suite/VP/Director), explicit budget signal, specific and urgent need |
-| 60 – 79     | Medium-High | Mid-level manager, genuine interest, some specificity, plausible authority |
-| 40 – 59     | Medium | Individual contributor, exploratory intent, unclear authority |
-| 20 – 39     | Low    | Personal inquiry, no budget signal, vague or unrelated context |
-| 0 – 19      | Very Low | Spam, student, job seeker, automated bot, no business relevance |
+| Score Range | Tier        | Criteria                                                                               |
+| ----------- | ----------- | -------------------------------------------------------------------------------------- |
+| 80 – 100    | High        | Decision-maker (C-Suite/VP/Director), explicit budget signal, specific and urgent need |
+| 60 – 79     | Medium-High | Mid-level manager, genuine interest, some specificity, plausible authority             |
+| 40 – 59     | Medium      | Individual contributor, exploratory intent, unclear authority                          |
+| 20 – 39     | Low         | Personal inquiry, no budget signal, vague or unrelated context                         |
+| 0 – 19      | Very Low    | Spam, student, job seeker, automated bot, no business relevance                        |
 
 Scores are generated by the LLM based on four signal categories:
+
 1. **Job title seniority** — VP/C-level outweigh managers; managers outweigh ICs
 2. **Message specificity** — Specific pain points, timelines, or budgets score higher
 3. **Company context** — Recognisable companies or specific industry context score higher
 4. **Intent signals** — Words like "urgent", "budget approved", "decision-maker" boost score
-
----
-
-## Google Sheets Conditional Formatting (Manual Step)
-
-After running the pipeline, apply colour coding in Google Sheets for visual scanning:
-
-1. Select the **Lead Score** column (column F).
-2. Go to **Format → Conditional formatting**.
-3. Add three rules:
-   - Score ≥ 70 → Background: **Green** (`#b7e1cd`)
-   - Score ≥ 40 (and < 70) → Background: **Yellow** (`#fff2cc`)
-   - Score < 40 → Background: **Red** (`#f4cccc`)
-
----
-
-## Running Tests
-
-```bash
-python -m pytest tests/ -v
-# or
-make test
-```
 
 ---
 
@@ -222,7 +219,13 @@ ai-lead-qualification/
 │   ├── ai_analyzer.py         # Groq API calls, JSON parsing, retry logic
 │   └── sheets_writer.py       # Google Sheets authentication and row writing
 │
-└── tests/
-    ├── __init__.py
-    └── test_models.py         # Pydantic model unit tests
+├── tests/
+│   ├── __init__.py
+│   └── test_models.py         # Pydantic model unit tests
+│
+└── Dashboard/
+    ├── index.html             # Dashboard entry point — open in any browser
+    ├── app.js                 # Data fetching, filtering, pagination, rendering
+    ├── styles.css             # Dark theme styles
+    └── config.js              # Google Sheets API key and spreadsheet ID
 ```

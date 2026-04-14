@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead Qualification Dashboard</title>
+  <script src="leads_data.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2a2d3a;
+      --text:      #e2e8f0;
+      --muted:     #8892a4;
+      --high:      #22c55e;
+      --high-bg:   rgba(34,197,94,.12);
+      --mid:       #f59e0b;
+      --mid-bg:    rgba(245,158,11,.12);
+      --low:       #ef4444;
+      --low-bg:    rgba(239,68,68,.12);
+      --accent:    #6366f1;
+      --accent-bg: rgba(99,102,241,.15);
+      --radius:    10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px 24px 60px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────── */
+    header {
+      max-width: 1200px;
+      margin: 0 auto 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.3px; }
+    header h1 span { color: var(--accent); }
+    .run-at { font-size: .78rem; color: var(--muted); }
+
+    /* ── Stat cards ───────────────────────────────────────────────────── */
+    .stats {
+      max-width: 1200px;
+      margin: 0 auto 28px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 18px;
+    }
+    .stat-card .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+    .stat-card .value { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat-card .sub   { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+    .stat-card.high   { border-color: var(--high);   background: var(--high-bg);  }
+    .stat-card.mid    { border-color: var(--mid);    background: var(--mid-bg);   }
+    .stat-card.low    { border-color: var(--low);    background: var(--low-bg);   }
+    .stat-card.high .value { color: var(--high); }
+    .stat-card.mid  .value { color: var(--mid);  }
+    .stat-card.low  .value { color: var(--low);  }
+
+    /* ── Score distribution bar ───────────────────────────────────────── */
+    .dist-wrap {
+      max-width: 1200px;
+      margin: 0 auto 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+    }
+    .dist-wrap h2 { font-size: .85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px; }
+    .dist-bar {
+      display: flex;
+      height: 28px;
+      border-radius: 6px;
+      overflow: hidden;
+      gap: 2px;
+    }
+    .dist-bar .seg {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .75rem;
+      font-weight: 600;
+      transition: opacity .2s;
+      cursor: default;
+    }
+    .dist-bar .seg:hover { opacity: .8; }
+    .dist-bar .seg.high { background: var(--high); color: #000; }
+    .dist-bar .seg.mid  { background: var(--mid);  color: #000; }
+    .dist-bar .seg.low  { background: var(--low);  color: #fff; }
+    .dist-legend { display: flex; gap: 20px; margin-top: 10px; }
+    .dist-legend span { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+    /* ── Controls ─────────────────────────────────────────────────────── */
+    .controls {
+      max-width: 1200px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 220px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 14px;
+      color: var(--text);
+      font-size: .88rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .search-box:focus { border-color: var(--accent); }
+    .search-box::placeholder { color: var(--muted); }
+    .filter-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: .83rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .18s;
+    }
+    .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+    .filter-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--text); }
+    .filter-btn.active.high { background: var(--high-bg); border-color: var(--high); color: var(--high); }
+    .filter-btn.active.mid  { background: var(--mid-bg);  border-color: var(--mid);  color: var(--mid);  }
+    .filter-btn.active.low  { background: var(--low-bg);  border-color: var(--low);  color: var(--low);  }
+    .count-label { font-size: .8rem; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+    /* ── Lead table ───────────────────────────────────────────────────── */
+    .table-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    thead th {
+      padding: 13px 16px;
+      text-align: left;
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.2);
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(99,102,241,.07); }
+    td { padding: 13px 16px; vertical-align: middle; }
+    td.name { font-weight: 600; white-space: nowrap; }
+    td.company { color: var(--muted); white-space: nowrap; }
+    td.title { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+    td.industry .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: .73rem;
+      font-weight: 500;
+      background: var(--accent-bg);
+      color: #a5b4fc;
+      border: 1px solid rgba(99,102,241,.3);
+      white-space: nowrap;
+    }
+    td.action { font-size: .8rem; color: var(--muted); max-width: 220px; }
+    td.score-cell { white-space: nowrap; }
+
+    /* Score pill */
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: .95rem;
+    }
+    .score-pill .bar {
+      width: 52px;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .score-pill .bar-fill { height: 100%; border-radius: 3px; }
+    .score-pill.high .num { color: var(--high); }
+    .score-pill.mid  .num { color: var(--mid);  }
+    .score-pill.low  .num { color: var(--low);  }
+    .score-pill.high .bar-fill { background: var(--high); }
+    .score-pill.mid  .bar-fill { background: var(--mid);  }
+    .score-pill.low  .bar-fill { background: var(--low);  }
+
+    .tier-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; margin-right: 5px;
+    }
+    .tier-dot.high { background: var(--high); }
+    .tier-dot.mid  { background: var(--mid);  }
+    .tier-dot.low  { background: var(--low);  }
+
+    /* ── Modal ────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      padding: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 620px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 28px;
+      position: relative;
+      animation: fadeUp .2s ease;
+    }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .modal-close {
+      position: absolute;
+      top: 16px; right: 18px;
+      background: none; border: none;
+      color: var(--muted); font-size: 1.4rem;
+      cursor: pointer; line-height: 1;
+      transition: color .15s;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-header { margin-bottom: 20px; padding-right: 28px; }
+    .modal-header .name { font-size: 1.25rem; font-weight: 700; }
+    .modal-header .meta { font-size: .83rem; color: var(--muted); margin-top: 3px; }
+    .modal-score-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+      padding: 16px 18px;
+      border-radius: 10px;
+    }
+    .modal-score-row.high { background: var(--high-bg); border: 1px solid rgba(34,197,94,.25); }
+    .modal-score-row.mid  { background: var(--mid-bg);  border: 1px solid rgba(245,158,11,.25); }
+    .modal-score-row.low  { background: var(--low-bg);  border: 1px solid rgba(239,68,68,.25);  }
+    .modal-score-num { font-size: 2.8rem; font-weight: 800; line-height: 1; }
+    .modal-score-row.high .modal-score-num { color: var(--high); }
+    .modal-score-row.mid  .modal-score-num { color: var(--mid);  }
+    .modal-score-row.low  .modal-score-num { color: var(--low);  }
+    .modal-score-meta .tier { font-weight: 600; font-size: 1rem; }
+    .modal-score-meta .industry-tag { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .progress-outer {
+      flex: 1;
+      height: 10px;
+      background: rgba(255,255,255,.08);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .progress-inner { height: 100%; border-radius: 5px; }
+    .high .progress-inner { background: var(--high); }
+    .mid  .progress-inner { background: var(--mid);  }
+    .low  .progress-inner { background: var(--low);  }
+
+    .modal-section { margin-bottom: 18px; }
+    .modal-section .sec-label {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .modal-section .sec-val {
+      font-size: .9rem;
+      line-height: 1.55;
+    }
+    .modal-section .message-box {
+      background: rgba(0,0,0,.25);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: .85rem;
+      color: var(--muted);
+      line-height: 1.6;
+      font-style: italic;
+    }
+    .action-box {
+      background: var(--accent-bg);
+      border: 1px solid rgba(99,102,241,.3);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: .88rem;
+      color: #a5b4fc;
+      font-weight: 500;
+    }
+    .modal-divider { border: none; border-top: 1px solid var(--border); margin: 6px 0 18px; }
+    .modal-footer { font-size: .73rem; color: var(--muted); text-align: right; margin-top: 8px; }
+
+    /* ── Empty state ──────────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+    }
+    .empty .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* ── Responsive ───────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      td.title, td.action { display: none; }
+      .modal { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <h1>Lead Qualification <span>Dashboard</span></h1>
+  <span class="run-at" id="run-at"></span>
+</header>
+
+<!-- Stat cards -->
+<div class="stats" id="stats"></div>
+
+<!-- Distribution bar -->
+<div class="dist-wrap">
+  <h2>Score Distribution</h2>
+  <div class="dist-bar" id="dist-bar"></div>
+  <div class="dist-legend">
+    <span><span class="dot" style="background:var(--high)"></span>High ≥ 70</span>
+    <span><span class="dot" style="background:var(--mid)"></span>Medium 40–69</span>
+    <span><span class="dot" style="background:var(--low)"></span>Low &lt; 40</span>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <input class="search-box" type="text" id="search" placeholder="Search by name, company, industry…" />
+  <div class="filter-btns">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn high" data-filter="high">High</button>
+    <button class="filter-btn mid"  data-filter="mid">Medium</button>
+    <button class="filter-btn low"  data-filter="low">Low</button>
+  </div>
+  <span class="count-label" id="count-label"></span>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Company</th>
+        <th>Job Title</th>
+        <th>Industry</th>
+        <th>Score</th>
+        <th>Recommended Action</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">
+    <div class="icon">🔍</div>
+    No leads match your search or filter.
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modal-close">&#215;</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function tier(score) {
+    return score >= 70 ? "high" : score >= 40 ? "mid" : "low";
+  }
+  function tierLabel(score) {
+    return score >= 70 ? "High" : score >= 40 ? "Medium" : "Low";
+  }
+  function esc(str) {
+    return String(str)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // ── Summary stats ────────────────────────────────────────────────────────────
+  const total  = LEADS_DATA.length;
+  const high   = LEADS_DATA.filter(l => l.lead_score >= 70).length;
+  const mid    = LEADS_DATA.filter(l => l.lead_score >= 40 && l.lead_score < 70).length;
+  const low    = LEADS_DATA.filter(l => l.lead_score < 40).length;
+  const avg    = (LEADS_DATA.reduce((s,l) => s + l.lead_score, 0) / total).toFixed(1);
+  const latest = LEADS_DATA.reduce((a,b) => a.processed_at > b.processed_at ? a : b).processed_at;
+
+  document.getElementById("run-at").textContent = "Last run: " + latest;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-card">
+      <div class="label">Total Leads</div>
+      <div class="value">${total}</div>
+      <div class="sub">processed</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Average Score</div>
+      <div class="value">${avg}</div>
+      <div class="sub">out of 100</div>
+    </div>
+    <div class="stat-card high">
+      <div class="label">High Quality</div>
+      <div class="value">${high}</div>
+      <div class="sub">score ≥ 70</div>
+    </div>
+    <div class="stat-card mid">
+      <div class="label">Medium Quality</div>
+      <div class="value">${mid}</div>
+      <div class="sub">score 40–69</div>
+    </div>
+    <div class="stat-card low">
+      <div class="label">Low Quality</div>
+      <div class="value">${low}</div>
+      <div class="sub">score &lt; 40</div>
+    </div>
+  `;
+
+  // ── Distribution bar ─────────────────────────────────────────────────────────
+  document.getElementById("dist-bar").innerHTML = `
+    <div class="seg high" style="flex:${high}" title="${high} High leads">${high}</div>
+    <div class="seg mid"  style="flex:${mid}"  title="${mid} Medium leads">${mid}</div>
+    <div class="seg low"  style="flex:${low}"  title="${low} Low leads">${low}</div>
+  `;
+
+  // ── Table rendering ──────────────────────────────────────────────────────────
+  let activeFilter = "all";
+  let searchQuery  = "";
+
+  function filteredLeads() {
+    return LEADS_DATA.filter(lead => {
+      const t = tier(lead.lead_score);
+      const matchFilter = activeFilter === "all" || t === activeFilter;
+      const q = searchQuery.toLowerCase();
+      const matchSearch = !q ||
+        lead.name.toLowerCase().includes(q) ||
+        lead.company_name.toLowerCase().includes(q) ||
+        lead.industry.toLowerCase().includes(q) ||
+        lead.job_title.toLowerCase().includes(q);
+      return matchFilter && matchSearch;
+    }).sort((a, b) => b.lead_score - a.lead_score);
+  }
+
+  function renderTable() {
+    const leads = filteredLeads();
+    const tbody = document.getElementById("table-body");
+    const empty = document.getElementById("empty");
+
+    document.getElementById("count-label").textContent =
+      leads.length + " of " + total + " leads";
+
+    if (leads.length === 0) {
+      tbody.innerHTML = "";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+
+    tbody.innerHTML = leads.map((lead, i) => {
+      const t = tier(lead.lead_score);
+      const pct = lead.lead_score;
+      return `
+        <tr data-index="${LEADS_DATA.indexOf(lead)}" onclick="openModal(${LEADS_DATA.indexOf(lead)})">
+          <td class="name">
+            <span class="tier-dot ${t}"></span>${esc(lead.name)}
+          </td>
+          <td class="company">${esc(lead.company_name)}</td>
+          <td class="title">${esc(lead.job_title)}</td>
+          <td class="industry"><span class="badge">${esc(lead.industry)}</span></td>
+          <td class="score-cell">
+            <div class="score-pill ${t}">
+              <span class="num">${lead.lead_score}</span>
+              <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
+            </div>
+          </td>
+          <td class="action">${esc(lead.recommended_action)}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // ── Modal ────────────────────────────────────────────────────────────────────
+  function openModal(index) {
+    const lead = LEADS_DATA[index];
+    const t  = tier(lead.lead_score);
+    const tl = tierLabel(lead.lead_score);
+    const pct = lead.lead_score;
+
+    document.getElementById("modal-content").innerHTML = `
+      <div class="modal-header">
+        <div class="name">${esc(lead.name)}</div>
+        <div class="meta">${esc(lead.job_title)} &nbsp;·&nbsp; ${esc(lead.company_name)} &nbsp;·&nbsp; ${esc(lead.email)}</div>
+      </div>
+
+      <div class="modal-score-row ${t}">
+        <div class="modal-score-num">${lead.lead_score}</div>
+        <div class="progress-outer">
+          <div class="progress-inner" style="width:${pct}%"></div>
+        </div>
+        <div class="modal-score-meta">
+          <div class="tier">${tl} Quality</div>
+          <div class="industry-tag">${esc(lead.industry)}</div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="sec-label">Lead Message</div>
+        <div class="message-box">"${esc(lead.message)}"</div>
+      </div>
+
+      <hr class="modal-divider" />
+
+      <div class="modal-section">
+        <div class="sec-label">Identified Business Need</div>
+        <div class="sec-val">${esc(lead.business_need)}</div>
+      </div>
+
+      <div class="modal-section">
+        <div class="sec-label">Recommended Action</div>
+        <div class="action-box">→ ${esc(lead.recommended_action)}</div>
+      </div>
+
+      <div class="modal-footer">Processed at ${esc(lead.processed_at)}</div>
+    `;
+
+    document.getElementById("modal-overlay").classList.add("open");
+  }
+
+  document.getElementById("modal-close").addEventListener("click", () => {
+    document.getElementById("modal-overlay").classList.remove("open");
+  });
+  document.getElementById("modal-overlay").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("modal-overlay")) {
+      document.getElementById("modal-overlay").classList.remove("open");
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") document.getElementById("modal-overlay").classList.remove("open");
+  });
+
+  // ── Filter buttons ───────────────────────────────────────────────────────────
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeFilter = btn.dataset.filter;
+      renderTable();
+    });
+  });
+
+  // ── Search ───────────────────────────────────────────────────────────────────
+  document.getElementById("search").addEventListener("input", (e) => {
+    searchQuery = e.target.value;
+    renderTable();
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  renderTable();
+</script>
+</body>
+</html>
